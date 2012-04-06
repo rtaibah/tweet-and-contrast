@@ -1,0 +1,509 @@
+<!DOCTYPE html> 
+<html>
+<head>	
+<link href="style.css" rel="stylesheet" type="text/css" />
+<script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jquery/1.6.3/jquery.min.js'></script> 
+<script type='text/javascript' src='./js/twitter_regex.js'></script>
+<script type='text/javascript' src='./js/porter.js'></script>
+<script type='text/javascript' src='./js/stopwords.js'></script>
+<script type='text/javascript' src='./js/highcharts.js'></script>
+<script type="text/javascript" src="./js/modules/exporting.js"></script>
+<script>
+	// Global variables for user1
+	
+	var user1Name = "";
+	
+	var user1Stem = [];
+	var user1StemDict = {};
+
+	var user1HashTag = [];
+    var user1HashTagDict = {};
+	
+	var user1Friend = [];
+	var user1FriendDict = {};
+	
+	var user1URI = [];
+	var user1URIDict = {};
+	
+	// Global variables for user2
+	
+	var user2Name = "";
+	
+	var user2Stem = [];
+	var user2StemDict = {};
+	
+	var user2HashTag = [];
+	var user2HashTagDict = {};
+	
+	var user2Friend = [];
+	var user2FriendDict = {};
+	
+	var user2URI = [];
+	var user2URIDict = {};
+	
+	// Global variables for analysis
+	var overLappedWords = [];
+	var overLappedWordsCount1 = [];
+	var overLappedWordsCount2 = [];
+	                 
+	// Get Users' tweets	
+	function getUser1Tweets(){
+		
+		console.log("getUser1Tweets");
+		
+		user1Name = $("#username1").val();
+		
+	  	var uri = 'https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name='+user1Name+'&count=200&callback=?';
+	  	
+	  	console.log(uri);
+	  	
+	  	$.getJSON(uri, function(data){
+	  		$.each(data, function(key, value){
+	      		// Get text part of each tweet
+	  			var text = value.text;
+				
+	      		// Save URI and Remove it from the original text
+	      		var URI = text.parseURL();
+				if(URI){
+					// When a single tweet contains multiple URIs
+					if(URI.length > 1){
+						for(i=0; i<URI.length; i++){
+							if (!(URI[i] in user1URIDict)){
+								user1URI.push(URI[i]);
+								user1URIDict[URI[i]] = 1;
+							}else{
+								user1URIDict[URI[i]]++;
+							}
+							// Remove URI from the text
+							text = text.replace(URI[i].toString(), '');
+						}
+					// When a single tweet contains only one URI
+					}else{
+						if (!(URI[0] in user1URIDict)){
+							user1URI.push(URI[0]);
+							user1URIDict[URI[0]] = 1;
+						}else{
+							user1URIDict[URI[0]]++;
+						}
+						// Remove URI from the text
+						text = text.replace(URI[0].toString(), '');
+					}
+				}
+				
+				// Save UserName and Remove it from the original text
+	      		var userName = text.parseUsername();
+	      		if (userName){
+	      			if (userName.length > 1){
+	      				for(i=0; i<userName.length; i++){
+	      					if (!(userName[i] in user1FriendDict)){
+	      						user1Friend.push(userName[i]);
+	      						user1FriendDict[userName[i]] = 1;
+	      					}else{
+	      						user1FriendDict[userName[i]]++;
+	      					}
+	      					// Remove URI from the text
+	      					text = text.replace(userName[i].toString(), '');
+	      				}
+	      			}else{
+	      				if (!(userName[0] in user1FriendDict)){
+	      					user1Friend.push(userName[0]);
+	      					user1FriendDict[userName[0]] = 1;
+	      				}else{
+	      					user1FriendDict[userName[0]]++;
+	      				}
+	      				// Remove URI from the text
+	      				text = text.replace(userName[0].toString(), '');	
+	      			}
+	      		}		
+	      		
+	      		// Save hashtag and Remove it from the original text
+	      		var hashtag = text.parseHashtag();
+	      		if (hashtag){
+	      			// When a single tweet contains multiple hashtags
+	      			if (hashtag.length > 1){
+	      				for(i=0; i<hashtag.length; i++){
+	      					if (!(hashtag[i] in user1HashTagDict)){
+	      						user1HashTag.push(hashtag[i]); // Add tag to array
+	      						user1HashTagDict[hashtag[i]] = 1; // Add tag to dict, with count of 1
+	      					}else{
+	      						user1HashTagDict[hashtag[i]]++; // Increment count of tag 
+	      					}
+	      					// Remove URI from the text
+	      					text = text.replace(hashtag[i].toString(), ''); // Remove hashtag from the original text
+	      				}
+	      			// When a single tweet contains only on hashtag with the same logic
+	      			}else{
+	      				if (!(hashtag[0] in user1HashTagDict)){
+	      					user1HashTag.push(hashtag[0]);
+	      					user1HashTagDict[hashtag[0]] = 1;
+	      				}else{
+	      					user1HashTagDict[hashtag[0]]++;
+	      				}
+	      				// Remove URI from the text
+	      				text = text.replace(hashtag[0].toString(), '');
+	      			}
+	      		}
+	      		
+	      		// Run stemmer
+	      		var stem = porter(text);
+	      		
+	      		// Add stemmed word into array and dictionary
+	      		if (stem){
+	      			for (i=0; i<stem.length; i++){
+	      				if(stem[i] != ''){
+	      					if (!(stem[i] in user1StemDict)){
+	      						user1Stem.push(stem[i]);
+	      						user1StemDict[stem[i]] = 1;
+	      					}else{
+	      						user1StemDict[stem[i]]++;
+	      					}
+	      				}
+	      			}
+	      		}
+	  		});
+	  		// Get Tweets from User2
+			getUser2Tweets();
+		});
+	}
+	
+	function getUser2Tweets(){
+		
+		console.log("getUser2Tweets");
+		
+		user2Name = $("#username2").val();
+	  	var uri = 'https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name='+user2Name+'&count=200&callback=?';
+	  	
+	  	console.log(uri);
+	  	
+	  	$.getJSON(uri, function(data){
+	  		$.each(data, function(key, value){
+	  			// Get text part of each tweet
+	  			var text = value.text;
+				
+	      		// Save URI and Remove it from the original text
+	      		var URI = text.parseURL();
+				if(URI){
+					// When a single tweet contains multiple URIs
+					if(URI.length > 1){
+						for(i=0; i<URI.length; i++){
+							if (!(URI[i] in user2URIDict)){						
+								user2URI.push(URI[i]);
+								user2URIDict[URI[i]] = 1;
+							}else{
+								user2URIDict[URI[i]]++;
+							}
+							text = text.replace(URI[i].toString(), '');
+						}
+					// When a single tweet contains only one URI
+					}else{
+						if (!(URI[0] in user2URIDict)){
+							user2URI.push(URI[0]);
+							user2URIDict[URI[0]] = 1;
+						}else{
+							user2URIDict[URI[0]]++;
+						}
+						text = text.replace(URI[0].toString(), '');
+					}
+				}
+				
+				// Save UserName and Remove it from the original text
+	      		var userName = text.parseUsername();
+	      		if (userName){
+	      			if (userName.length > 1){
+	      				for(i=0; i<userName.length; i++){
+	      					if (!(userName[i] in user2FriendDict)){
+	      						user2Friend.push(userName[i]);
+	      						user2FriendDict[userName[i]] = 1;
+	      					}else{
+	      						user2FriendDict[userName[i]]++;
+	      					}
+	      					text = text.replace(userName[i].toString(), '');
+	      				}
+	      			}else{
+	      				if (!(userName[0] in user2FriendDict)){
+	      					user2Friend.push(userName[0]);
+	      					user2FriendDict[userName[0]] = 1;
+	      				}else{
+	      					user2FriendDict[userName[0]]++;
+	      				}
+	      				text = text.replace(userName[0].toString(), '');	
+	      			}
+	      		}		
+	      		
+	      		// Save hashtag and Remove it from the original text
+	      		var hashtag = text.parseHashtag();
+	      		if (hashtag){
+	      			// When a single tweet contains multiple hashtags
+	      			if (hashtag.length > 1){
+	      				for(i=0; i<hashtag.length; i++){
+	      					if (!(hashtag[i] in user2HashTagDict)){
+	      						user2HashTag.push(hashtag[i]); // Add tag to array
+	      						user2HashTagDict[hashtag[i]] = 1; // Add tag to dict, with count of 1
+	      					}else{
+	      						user2HashTagDict[hashtag[i]]++; // Increment count of tag 
+	      					}
+	      					text = text.replace(hashtag[i].toString(), ''); // Remove hashtag from the original text
+	      				}
+	      			// When a single tweet contains only on hashtag with the same logic
+	      			}else{
+	      				if (!(hashtag[0] in user2HashTagDict)){
+	      					user2HashTag.push(hashtag[0]);
+	      					user2HashTagDict[hashtag[0]] = 1;
+	      				}else{
+	      					user2HashTagDict[hashtag[0]]++;
+	      				}
+	      				text = text.replace(hashtag[0].toString(), '');
+	      			}
+	      		}
+	      		
+	      		// Run stemmer
+	      		var stem = porter(text);
+	      		
+	      		// Save stemmed words
+	      		if (stem){
+	      			for (i=0; i<stem.length; i++){
+	      				// Check the stemmed word is empty or not
+	      				if(stem[i] != ''){
+	      					if (!(stem[i] in user2StemDict)){ // New words      						
+	      						user2Stem.push(stem[i]);
+	      						user2StemDict[stem[i]] = 1;
+	      					}else{ // Existing words so, increase count
+	      						user2StemDict[stem[i]]++;
+	      					}
+	      				}
+	      			}
+	      		}
+	  		});
+	  		
+	  		// Run Analysis
+	  		runAnalysis();
+	  		
+		});
+	}
+	
+	function runAnalysis(){
+		
+		console.log("runAnalysis");
+		
+		user1Stem.sort();
+		user2Stem.sort();
+		
+		user1HashTag.sort();
+		user2HashTag.sort();
+		
+		console.log(user1HashTag);
+		console.log(user2HashTag);
+		
+		user1Friend.sort();
+		user2Friend.sort();
+		
+		console.log(user1Friend);
+		console.log(user2Friend);
+		
+		// Add overlapped stemmed words
+		for (id1 in user1Stem){
+			for (id2 in user2Stem){
+				if (user1Stem[id1] == user2Stem[id2]){
+					overLappedWords.push(user1Stem[id1]);
+					
+					overLappedWordsCount1.push(user1StemDict[user1Stem[id1]]);
+					overLappedWordsCount2.push(user2StemDict[user2Stem[id2]]);
+				}
+			}
+		}
+		
+		// Add overlapped hashtags
+		for (id1 in user1HashTag){
+			for (id2 in user2HashTag){
+				if (user1HashTag[id1] == user2HashTag[id2]){
+					overLappedWords.push(user1HashTag[id1]);
+					
+					overLappedWordsCount1.push(user1HashTagDict[user1HashTag[id1]]);
+					overLappedWordsCount2.push(user2HashTagDict[user2HashTag[id2]]);
+				}
+			}
+		}
+		
+		// Add overlapped friends
+		for (id1 in user1Friend){
+			for (id2 in user2Friend){
+				if (user1Friend[id1] == user2Friend[id2]){
+					overLappedWords.push(user1Friend[id1]);
+					
+					overLappedWordsCount1.push(user1FriendDict[user1Friend[id1]]);
+					overLappedWordsCount2.push(user2FriendDict[user2Friend[id2]]);
+				}
+			}
+		}
+		
+		// Show Chart
+		if ((overLappedWords) && (overLappedWords.length > 0)){
+			showChart(overLappedWords, overLappedWordsCount1, overLappedWordsCount2);
+		}else{
+			$("#container").append = 'Nothing in common!!!';
+		}
+		
+	}
+
+	function porter(text){
+		
+		var	wordlist, ix, word, stem, overlap = [], stemmed = [];
+
+		// dump non-words
+		text = text.replace(/[^\w]/g, ' ');
+
+		// dump multiple white-space
+		text = text.replace(/\s+/g, ' ');
+		
+		// change text as lower case letter
+		text = text.toLowerCase();
+		
+		// split
+		wordlist = text.split(' ');
+		
+		// Stop words removal
+		for(ix in wordlist) {
+			if (!(wordlist[ix] in stopwords) && (wordlist[ix] != '') && (wordlist[ix].length > 1))
+				stem = stemmer(wordlist[ix]);
+			
+			// overlap.push(wordlist[ix].replace(stem, stem + '<em>') + '</em>');
+			if (stem)
+				stemmed.push(stem);
+		}
+		return stemmed;
+	}	
+	
+	function showChart(overLappedWords, overLappedWordsCount1, overLappedWordsCount2){
+		
+		console.log("showChart");
+		
+		console.log(overLappedWords.length);
+		
+		var chartheight = overLappedWords.length * 20;
+		
+   		var chart = new Highcharts.Chart({
+			chart: {
+				renderTo: 'container',
+				defaultSeriesType: 'area',
+				spacingBottom: 30,
+				inverted: true,
+			    height: chartheight
+			},
+			title: {
+				text: 'Tweet Comparison'
+			},
+			subtitle: {
+				text: 'IO LAB A5',
+				floating: true,
+				align: 'right',
+				verticalAlign: 'bottom',
+				y: 15
+			},
+			legend: {
+				layout: 'vertical',
+				align: 'left',
+				verticalAlign: 'top',
+				x: 600,
+				y: 100,
+				floating: true,
+				borderWidth: 1,
+				backgroundColor: '#FFFFFF'
+			},
+			xAxis: {
+				categories: overLappedWords,
+				
+			},
+			yAxis: {
+				title: {
+					text: 'Counts'
+				},
+				labels: {
+					formatter: function() {
+						return this.value;
+					}
+				}
+			},
+			tooltip: {
+				formatter: function() {
+		                return '<b>'+ this.series.name +'</b><br/>'+
+						this.x +': '+ this.y;
+				}
+			},
+			plotOptions: {
+				area: {
+					fillOpacity: 0.5
+				}
+			},
+			credits: {
+				enabled: false
+			},
+			series: [{
+				name: user1Name,
+				data: overLappedWordsCount1
+			}, {
+				name: user2Name,
+				data: overLappedWordsCount2
+			}]
+		});
+	}
+	
+	$(document).ready(function(){
+		$("#submit").click(function(){
+			getUser1Tweets();
+		});
+		
+		$("#clear").click(function(){
+			$("#container").html("");
+			
+			// Clear last value
+			user1Name = "";
+			
+			user1Stem = [];
+			user1StemDict = {};
+			
+			user1URI = [];
+			user1URIDict = {};
+			
+			user1Friend = [];
+			user1FriendDict = {};
+			
+			user1HashTag = [];
+	        user1HashTagDict = {};
+			
+			// Clear last value
+			user2Name = "";
+			
+			user2Stem = [];
+			suer2StemDict = {};
+			
+			user2HashTag = [];
+	        user2HashTagDict = {};
+	        
+			user2URI = [];
+			user2URIDict = {};
+			
+			user2Friend = [];
+			user2FriendDict = {};
+			
+			// Global variables for analysis
+			overLappedWords = [];
+			overLappedWordsCount1 = [];
+			overLappedWordsCount2 = [];
+			
+		});
+	});
+	
+	
+</script>
+
+<body align='center'>
+	<h2>Twitter Comparison</h2>
+	<input type="text" class="username" id="username1" placeholder="50cent" />
+	<input type="text" class="username" id="username2" placeholder="barackobama" />
+	<p>
+	<button id="submit">Submit</button>
+	<button id="clear">&nbsp;Clear&nbsp;</button>
+	</p>
+	<div id="container"></div>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html> 
+<html>
+<head>	
+<link href="style.css" rel="stylesheet" type="text/css" />
+<script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jquery/1.6.3/jquery.min.js'></script> 
+<script type='text/javascript' src='./js/twitter_regex.js'></script>
+<script type='text/javascript' src='./js/porter.js'></script>
+<script>
+	// Global variables
+	var user1Stem = [];
+	var user2Stem = [];
+	
+	var user1Hashtag = [];
+	var user2Hashtag = [];
+	
+	var user1URI = [];
+	var user2URI = [];
+	
+	var user1Friend = [];
+	var user2Friend = [];
+	
+	// Get Users' tweets	
+	function getUser1Tweets(){
+		// Clear last value
+		user1Stem = [];
+		user1Hashtag = [];
+		user1URI = [];
+		user1Friend = [];
+		
+		var userName1 = $("#username1").val();
+	  	var uri = 'https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name='+userName1+'&count=200&callback=?';
+	  	$.getJSON(uri, function(data){
+	  		$.each(data, function(key, value){
+	      		// Get text part of each tweet
+	  			var text = value.text;
+				
+	      		// Save URL and Remove it from the original text
+	      		var URL = text.parseURL();
+				if(URL){
+					if(URL.length > 1){
+						for(i=0; i<URL.length; i++){
+							user1URI.push(URL[i]);
+							text = text.replace(URL[i].toString(), '');
+						}
+					}else{
+						user1URI.push(URL[0]);
+						text = text.replace(URL.toString(), '');
+					}
+				}
+				
+				// Save UserName and Remove it from the original text
+	      		var userName = text.parseUsername();
+	      		if (userName){
+	      			if (userName.length > 1){
+	      				for(i=0; i<userName.length; i++){
+	      					user1Friend.push(userName[i]);
+	      					text = text.replace(userName[i].toString(), '');
+	      				}
+	      			}else{
+	      				user1Friend.push(userName[0]);
+	      				text = text.replace(userName.toString(), '');	
+	      			}
+	      		}		
+	      		
+	      		// Save hashtag and Remove it from the original text
+	      		var hashtag = text.parseHashtag();
+	      		if (hashtag){
+	      			if (hashtag.length > 1){
+	      				for(i=0; i<hashtag.length; i++){
+	      					user1Hashtag.push(hashtag[i]);
+	      					text = text.replace(hashtag[i].toString(), '');
+	      				}
+	      			}else{
+	      				user1Hashtag.push(hashtag[0]);
+	      				text = text.replace(hashtag.toString(), '');
+	      			}
+	      		}
+	      		
+	      		// Run stemmer
+	      		var stem = porter(text);
+	      		
+	      		if (stem){
+	      			for (i=0; i<stem.length; i++){
+	      				if(stem[i] != '')
+	      					user1Stem.push(stem[i]);
+	      			}
+	      		}
+	  		});
+	  		
+	  		// Log print out
+	  		console.log(user1URI);
+	  		console.log(user1Friend);
+	  		console.log(user1Hashtag);
+	  		console.log(user1Stem);
+		});
+	}
+	
+	function getUser2Tweets(){
+		// Clear last value
+		user2Stem = [];
+		user2Hashtag = [];
+		user2URI = [];
+		user2Friend = [];
+		
+		var userName2 = $("#username2").val();
+	  	var uri = 'https://api.twitter.com/1/statuses/user_timeline.json?include_entities=true&include_rts=true&screen_name='+userName2+'&count=200&callback=?';
+	  	$.getJSON(uri, function(data){
+	  		$.each(data, function(key, value){
+	  		// Get text part of each tweet
+	  			var text = value.text;
+				
+	      		// Save URL and Remove it from the original text
+	      		var URL = text.parseURL();
+				if(URL){
+					if(URL.length > 1){
+						for(i=0; i<URL.length; i++){
+							user2URI.push(URL[i]);
+							text = text.replace(URL[i].toString(), '');
+						}
+					}else{
+						user2URI.push(URL[0]);
+						text = text.replace(URL.toString(), '');
+					}
+				}
+				
+				// Save UserName and Remove it from the original text
+	      		var userName = text.parseUsername();
+	      		if (userName){
+	      			if (userName.length > 1){
+	      				for(i=0; i<userName.length; i++){
+	      					user2Friend.push(userName[i]);
+	      					text = text.replace(userName[i].toString(), '');
+	      				}
+	      			}else{
+	      				user2Friend.push(userName[0]);
+	      				text = text.replace(userName.toString(), '');	
+	      			}
+	      		}		
+	      		
+	      		// Save hashtag and Remove it from the original text
+	      		var hashtag = text.parseHashtag();
+	      		if (hashtag){
+	      			if (hashtag.length > 1){
+	      				for(i=0; i<hashtag.length; i++){
+	      					user2Hashtag.push(hashtag[i]);
+	      					text = text.replace(hashtag[i].toString(), '');
+	      				}
+	      			}else{
+	      				user2Hashtag.push(hashtag[0]);
+	      				text = text.replace(hashtag.toString(), '');
+	      			}
+	      		}
+	      		
+	      		// Run stemmer
+	      		var stem = porter(text);
+	      		
+	      		if (stem){
+	      			for (i=0; i<stem.length; i++){
+	      				if(stem[i] != '')
+	      					user2Stem.push(stem[i]);
+	      			}
+	      		}
+	  		});
+	  		
+	  		// Log print out
+ 	  		console.log(user2URI);
+	  		console.log(user2Friend);
+	  		console.log(user2Hashtag);
+	  		console.log(user2Stem);
+		});
+	}
+	
+	function porter(text){
+		var	wordlist,
+			ix,
+			word,
+			stem,
+			overlap = [],
+			stemmed = [],
+
+		// dump non-words
+		text = text.replace(/[^\w]/g, ' ');
+
+		// dump multiple white-space
+		text = text.replace(/\s+/g, ' ');
+		
+		// change text as lower case letter
+		text = text.toLowerCase();
+		
+		// split
+		wordlist = text.split(' ');
+		
+		// console.log(wordlist);
+		
+		// stopwords' list
+		var stopwords = {"an":1, "are":2, "as":3, "at":4, "com":5, 
+				         "for":6, "from":7, "in":8, "is":9, "it":10,
+				         "of":11, "on":12, "or":13, "that":14, "the":15, 
+				         "this":16, "to":17, "will":18, "with":19, "www":20};
+		
+		for(ix in wordlist) {
+			if (!(wordlist[ix] in stopwords) && (wordlist[ix] != '') && (wordlist[ix].length > 1))
+				stem = stemmer(wordlist[ix]);
+			
+			// overlap.push(wordlist[ix].replace(stem, stem + '<em>') + '</em>');
+			if (stem)
+				stemmed.push(stem);
+		}
+		return stemmed;
+	}
+
+	$(document).ready(function(){
+		$("#submit").click(function(){
+			
+			getUser1Tweets();
+			getUser2Tweets();
+			//computeHashtag1();
+			
+		});
+	});
+	
+</script>
+
+<body>
+<h1>Twitter Timeline</h1>
+	<input type="text" class="username" id="username1" placeholder="50cent" />
+	<input type="text" class="username" id="username2" placeholder="barackobama"  />
+	<button id="submit">Submit</button>
+</body>
+</html>
